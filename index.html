@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KPI Dashboard — Zettelfrei arbeiten</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --green: #34d399;
+      --blue: #60a5fa;
+      --orange: #fb923c;
+      --pink: #f472b6;
+      --text: #f1f0ff;
+      --muted: #8b8aa8;
+      --border: rgba(108,99,255,0.18);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SLIDES ── */
+    .deck { width: 100%; height: 100vh; position: relative; }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 60px 80px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+    .slide.active { opacity: 1; pointer-events: all; }
+
+    /* ── NAV ── */
+    .nav {
+      position: fixed;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      z-index: 100;
+    }
+    .nav button {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 28px;
+      border-radius: 100px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .nav button:hover { background: var(--accent); border-color: var(--accent); }
+    .nav button:disabled { opacity: 0.3; cursor: default; }
+    .nav .counter { color: var(--muted); font-size: 13px; min-width: 60px; text-align: center; }
+
+    /* ── PROGRESS ── */
+    .progress-bar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.4s ease;
+      z-index: 200;
+    }
+
+    /* ── TYPOGRAPHY ── */
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: clamp(36px, 5vw, 64px); font-weight: 800; line-height: 1.1; }
+    h2 { font-size: clamp(28px, 4vw, 48px); font-weight: 700; line-height: 1.2; }
+    h3 { font-size: 20px; font-weight: 600; }
+    p { color: var(--muted); line-height: 1.7; font-size: 16px; }
+    .lead { font-size: 20px; color: var(--text); opacity: 0.85; line-height: 1.6; }
+
+    /* ── GRID HELPERS ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; max-width: 900px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; width: 100%; max-width: 960px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; width: 100%; max-width: 960px; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .card.accent-border { border-color: var(--accent); }
+    .card .icon { font-size: 28px; margin-bottom: 12px; }
+    .card h3 { margin-bottom: 8px; }
+    .card p { font-size: 14px; }
+
+    /* ── KPI CHIP ── */
+    .kpi-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .kpi-chip .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .kpi-chip span { font-size: 14px; font-weight: 500; }
+
+    /* ── BADGE ── */
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .badge-purple { background: rgba(108,99,255,0.2); color: var(--accent2); }
+    .badge-green  { background: rgba(52,211,153,0.15); color: var(--green); }
+    .badge-blue   { background: rgba(96,165,250,0.15); color: var(--blue); }
+    .badge-orange { background: rgba(251,146,60,0.15); color: var(--orange); }
+
+    /* ── PHASE ITEM ── */
+    .phase {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+    }
+    .phase .phase-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .phase .num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .phase ul { padding-left: 16px; }
+    .phase li { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+
+    /* ── DIVIDER ── */
+    .divider {
+      width: 60px; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin: 20px 0;
+    }
+
+    /* ── GLOW ── */
+    .glow {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
+    /* ── SLIDE SPECIFIC ── */
+
+    /* 1 — Title */
+    #s1 { text-align: center; }
+    #s1 .glow-1 { width: 500px; height: 500px; background: var(--accent); top: -100px; left: -100px; }
+    #s1 .glow-2 { width: 400px; height: 400px; background: var(--accent2); bottom: -50px; right: -50px; }
+    #s1 h1 { max-width: 800px; }
+    #s1 h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    #s1 .subtitle { margin-top: 20px; font-size: 18px; color: var(--muted); }
+    #s1 .meta { display: flex; gap: 16px; margin-top: 32px; justify-content: center; flex-wrap: wrap; }
+
+    /* 2 — Problem */
+    #s2 .content { max-width: 900px; width: 100%; }
+    #s2 .pain { display: flex; align-items: flex-start; gap: 16px; padding: 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 16px; }
+    #s2 .pain .em { font-size: 24px; flex-shrink: 0; }
+    #s2 .pain h3 { margin-bottom: 4px; font-size: 16px; }
+    #s2 .pain p { font-size: 14px; }
+
+    /* 3 — Konzept */
+    #s3 .levels { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 800px; }
+    #s3 .level { display: flex; align-items: stretch; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); }
+    #s3 .level-tag { padding: 20px 24px; font-weight: 800; font-size: 18px; display: flex; align-items: center; min-width: 90px; justify-content: center; }
+    #s3 .level-body { padding: 20px 24px; background: var(--surface); flex: 1; }
+    #s3 .level-body h3 { margin-bottom: 6px; font-size: 15px; }
+    #s3 .level-body p { font-size: 13px; }
+    #s3 .l1-tag { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
+    #s3 .l2-tag { background: rgba(108,99,255,0.2); color: var(--accent2); }
+    #s3 .l3-tag { background: var(--surface2); color: var(--muted); }
+
+    /* 4 — L1 Cockpit */
+    #s4 .kpi-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; max-width: 900px; width: 100%; }
+    #s4 .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    #s4 .kpi-card .src { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+    #s4 .kpi-card .name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    #s4 .kpi-card .desc { font-size: 12px; color: var(--muted); }
+    #s4 .kpi-card.star { border-color: var(--accent); }
+    #s4 .kpi-card.star::before { content: '★'; position: absolute; top: 12px; right: 14px; color: var(--accent2); font-size: 14px; }
+
+    /* 5 — L2 */
+    #s5 .dept { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    #s5 .dept-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    #s5 .dept-icon { font-size: 20px; }
+    #s5 .dept h3 { font-size: 15px; }
+    #s5 .dept ul { padding-left: 0; list-style: none; }
+    #s5 .dept li { font-size: 12px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    #s5 .dept li:last-child { border-bottom: none; }
+    #s5 .dept li::before { content: '→ '; color: var(--accent2); }
+
+    /* 6 — Tool */
+    #s6 .tool-hero { background: var(--surface); border: 1px solid var(--accent); border-radius: 20px; padding: 36px; max-width: 700px; width: 100%; text-align: center; position: relative; overflow: hidden; }
+    #s6 .tool-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(108,99,255,0.12), transparent 60%); }
+    #s6 .tool-hero h2 { margin-bottom: 12px; }
+    #s6 .tool-features { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 24px; }
+    #s6 .feat { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    #s6 .sources { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+
+    /* 7 — Phasen */
+    #s7 .phases { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 900px; width: 100%; }
+
+    /* 8 — Timeline */
+    #s8 .timeline { max-width: 800px; width: 100%; }
+    #s8 .trow { display: flex; align-items: center; gap: 0; margin-bottom: 12px; }
+    #s8 .week-label { width: 80px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+    #s8 .bar-wrap { flex: 1; position: relative; height: 36px; }
+    #s8 .bar {
+      position: absolute;
+      height: 100%;
+      border-radius: 8px;
+      display: flex; align-items: center; padding: 0 12px;
+      font-size: 12px; font-weight: 500;
+      white-space: nowrap;
+    }
+    #s8 .week-cols { display: flex; margin-left: 80px; margin-bottom: 8px; }
+    #s8 .wcol { flex: 1; text-align: center; font-size: 11px; color: var(--muted); }
+
+    /* 9 — CTA */
+    #s9 { text-align: center; }
+    #s9 .glow-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; right: -200px; }
+    #s9 .steps { display: flex; flex-direction: column; gap: 12px; max-width: 560px; width: 100%; margin: 32px auto 0; }
+    #s9 .step { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; text-align: left; }
+    #s9 .step .n { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+    #s9 .step div h3 { font-size: 15px; margin-bottom: 2px; }
+    #s9 .step div p { font-size: 13px; }
+
+    /* keyboard hint */
+    .key-hint { position: fixed; top: 20px; right: 24px; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+<div class="key-hint">← → oder Klick zum Navigieren</div>
+
+<div class="deck" id="deck">
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 1 — TITEL
+  ══════════════════════════════════════════ -->
+  <div class="slide active" id="s1">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="label">Internes Kickoff · März 2026</div>
+    <h1>Unser <span>KPI-Dashboard</span><br>— endlich Klarheit über<br>unsere Zahlen</h1>
+    <p class="subtitle">Wie wir Entscheidungen künftig auf Daten stützen,<br>nicht auf Bauchgefühl.</p>
+    <div class="meta">
+      <span class="badge badge-purple">SaaS · Zettelfrei arbeiten</span>
+      <span class="badge badge-green">1.000 registrierte User</span>
+      <span class="badge badge-blue">5 Bereiche · 3 Ebenen</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 2 — PROBLEM
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s2">
+    <div class="label">Das Problem heute</div>
+    <h2 style="margin-bottom:32px;">Wir fliegen<br>im Blindflug.</h2>
+    <div class="content">
+      <div class="pain">
+        <div class="em">📊</div>
+        <div>
+          <h3>Keine zentrale Datenbasis</h3>
+          <p>Zahlen sind in Stripe, Matomo, Meta und unserer DB verteilt. Niemand hat ein Gesamtbild.</p>
+        </div>
+      </div>
+      <div class="pain">
+        <div class="em">🔀</div>
+        <div>
+          <h3>Kein gemeinsames Verständnis</h3>
+          <p>Sales, Marketing, Product und Operations arbeiten mit unterschiedlichen Metriken. Team-Alignment fehlt.</p>
+        </div>
+      </div>
+      <div class="pain">
+        <div class="em">⏱️</div>
+        <div>
+          <h3>Entscheidungen dauern zu lang</h3>
+          <p>Ohne tägliche Datensicht reagieren wir zu spät auf Trends — Wachstum und Churn werden erst zu spät sichtbar.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 3 — KONZEPT
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s3">
+    <div class="label">Das Konzept</div>
+    <h2 style="margin-bottom:8px;">3 Ebenen.<br>Ein klares Bild.</h2>
+    <p style="margin-bottom:32px;">Von der täglichen Steuerung bis zur tiefen Analyse.</p>
+    <div class="levels">
+      <div class="level">
+        <div class="level-tag l1-tag">L1</div>
+        <div class="level-body">
+          <h3>Executive Cockpit — täglich, 1 Blick</h3>
+          <p>MRR · Registrierte User · WAU · Zettel versandt · Neue Anmeldungen · Net New MRR</p>
+        </div>
+      </div>
+      <div class="level">
+        <div class="level-tag l2-tag">L2</div>
+        <div class="level-body">
+          <h3>Bereichs-Dashboards — wöchentliches Review</h3>
+          <p>Finance · Marketing · Product · Operations — je 5–8 KPIs pro Bereich</p>
+        </div>
+      </div>
+      <div class="level">
+        <div class="level-tag l3-tag">L3</div>
+        <div class="level-body">
+          <h3>Deep Dives — für Roadmap & Entscheidungen</h3>
+          <p>Funnel-Analyse · Cohort-Retention · Churn-Ursachen · Kampagnen-ROI</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 4 — L1 COCKPIT
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s4">
+    <div class="label">Level 1 — Executive Cockpit</div>
+    <h2 style="margin-bottom:8px;">Was wir täglich sehen.</h2>
+    <p style="margin-bottom:28px;">6 Metriken. Auf einen Blick. Jeden Morgen.</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="src">Stripe</div>
+        <div class="name">MRR</div>
+        <div class="desc">Monthly Recurring Revenue inkl. Trend</div>
+      </div>
+      <div class="kpi-card">
+        <div class="src">Datenbank</div>
+        <div class="name">Registrierte User</div>
+        <div class="desc">Gesamt + Wachstum diese Woche</div>
+      </div>
+      <div class="kpi-card">
+        <div class="src">Matomo / DB</div>
+        <div class="name">WAU</div>
+        <div class="desc">Weekly Active Users</div>
+      </div>
+      <div class="kpi-card star">
+        <div class="src">Datenbank · North Star</div>
+        <div class="name">Zettel versandt</div>
+        <div class="desc">Kern-Nutzungsmoment der letzten 7 Tage</div>
+      </div>
+      <div class="kpi-card">
+        <div class="src">Datenbank</div>
+        <div class="name">Neue Registrierungen</div>
+        <div class="desc">Heute und diese Woche</div>
+      </div>
+      <div class="kpi-card">
+        <div class="src">Stripe</div>
+        <div class="name">Net New MRR</div>
+        <div class="desc">Neues MRR minus Churn</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 5 — L2 BEREICHE
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s5">
+    <div class="label">Level 2 — Bereichs-Dashboards</div>
+    <h2 style="margin-bottom:24px;">Jeder Bereich.<br>Seine Metriken.</h2>
+    <div class="grid-4">
+      <div class="dept">
+        <div class="dept-head"><span class="dept-icon">💰</span><h3>Finance</h3></div>
+        <ul>
+          <li>MRR Wasserfall</li>
+          <li>Churn Rate</li>
+          <li>ARPU</li>
+          <li>LTV / CAC</li>
+          <li>Free → Paid Conv.</li>
+        </ul>
+      </div>
+      <div class="dept">
+        <div class="dept-head"><span class="dept-icon">📣</span><h3>Marketing</h3></div>
+        <ul>
+          <li>Registr. nach Quelle</li>
+          <li>CPL pro Kanal</li>
+          <li>CAC</li>
+          <li>Website-Traffic</li>
+          <li>Conversion Rate</li>
+        </ul>
+      </div>
+      <div class="dept">
+        <div class="dept-head"><span class="dept-icon">🛠️</span><h3>Product</h3></div>
+        <ul>
+          <li>WAU / MAU</li>
+          <li>Zettel-Volumen</li>
+          <li>Aktivierungsrate</li>
+          <li>Feature-Adoption</li>
+          <li>Retention-Cohorts</li>
+        </ul>
+      </div>
+      <div class="dept">
+        <div class="dept-head"><span class="dept-icon">⚙️</span><h3>Operations</h3></div>
+        <ul>
+          <li>Uptime</li>
+          <li>Login-Erfolgsrate</li>
+          <li>Failed Logins</li>
+          <li>API-Fehlerrate</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 6 — TOOL
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s6">
+    <div class="label">Das Tool</div>
+    <div class="tool-hero">
+      <h2>Metabase</h2>
+      <p style="margin-top:8px;">Self-hosted · Open Source · Wächst mit uns</p>
+      <div class="tool-features">
+        <div class="feat">🔌 Direkte DB-Anbindung</div>
+        <div class="feat">📊 Interaktive Drill-downs</div>
+        <div class="feat">📧 Tägliche E-Mail-Reports</div>
+        <div class="feat">🔔 Automatische Alerts</div>
+        <div class="feat">👥 Team-Sharing</div>
+        <div class="feat">🔓 Kein Lock-in</div>
+      </div>
+      <p style="margin-top:24px; font-size:13px;">Alle Datenquellen in einem Dashboard:</p>
+      <div class="sources">
+        <span class="badge badge-purple">Datenbank</span>
+        <span class="badge badge-green">Stripe</span>
+        <span class="badge badge-blue">Matomo</span>
+        <span class="badge badge-orange">Meta Ads</span>
+        <span class="badge badge-purple">Typo3</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 7 — EXECUTION PLAN
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s7">
+    <div class="label">Execution Plan</div>
+    <h2 style="margin-bottom:24px;">4 Phasen.<br>8 Wochen.</h2>
+    <div class="phases">
+      <div class="phase">
+        <div class="phase-head">
+          <div class="num">1</div>
+          <div>
+            <h3>Foundation & Data Audit</h3>
+            <span class="badge badge-blue" style="font-size:11px;">Woche 1–2</span>
+          </div>
+        </div>
+        <ul>
+          <li>DB-Tabellen & Events prüfen</li>
+          <li>Fehlende Tracking-Felder identifizieren</li>
+          <li>Stripe & Meta Audit</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="phase-head">
+          <div class="num">2</div>
+          <div>
+            <h3>Data Engineering</h3>
+            <span class="badge badge-orange" style="font-size:11px;">Woche 2–4</span>
+          </div>
+        </div>
+        <ul>
+          <li>Fehlende Events implementieren</li>
+          <li>Metabase Setup (Docker)</li>
+          <li>DB + Stripe anbinden</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="phase-head">
+          <div class="num">3</div>
+          <div>
+            <h3>Dashboard-Bau</h3>
+            <span class="badge badge-purple" style="font-size:11px;">Woche 3–5</span>
+          </div>
+        </div>
+        <ul>
+          <li>L1-Cockpit live (Woche 2!)</li>
+          <li>L2-Dashboards alle 5 Bereiche</li>
+          <li>Alerts & tägliche Reports</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <div class="phase-head">
+          <div class="num">4</div>
+          <div>
+            <h3>Refinement & Adoption</h3>
+            <span class="badge badge-green" style="font-size:11px;">Woche 6–8</span>
+          </div>
+        </div>
+        <ul>
+          <li>L3 Deep Dives & Cohorts</li>
+          <li>Weekly-Review-Ritual</li>
+          <li>Team-Onboarding & Glossar</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 8 — TIMELINE
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s8">
+    <div class="label">Timeline</div>
+    <h2 style="margin-bottom:28px;">L1 live in <span style="color:var(--accent2);">Woche 2.</span></h2>
+    <div class="timeline">
+      <div class="week-cols">
+        <div class="wcol">W1</div>
+        <div class="wcol">W2</div>
+        <div class="wcol">W3</div>
+        <div class="wcol">W4</div>
+        <div class="wcol">W5</div>
+        <div class="wcol">W6</div>
+        <div class="wcol">W7</div>
+        <div class="wcol">W8</div>
+      </div>
+      <div class="trow">
+        <div class="week-label" style="font-size:11px;color:var(--muted);">DB Audit</div>
+        <div class="bar-wrap">
+          <div class="bar" style="left:0%;width:25%;background:rgba(96,165,250,0.25);border:1px solid var(--blue);color:var(--blue);">Audit</div>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="week-label" style="font-size:11px;color:var(--muted);">Metabase</div>
+        <div class="bar-wrap">
+          <div class="bar" style="left:12.5%;width:37.5%;background:rgba(251,146,60,0.2);border:1px solid var(--orange);color:var(--orange);">Setup + Anbindung</div>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="week-label" style="font-size:11px;color:var(--muted);">L1 Cockpit</div>
+        <div class="bar-wrap">
+          <div class="bar" style="left:12.5%;width:12.5%;background:linear-gradient(90deg,var(--accent),var(--accent2));color:white;border:none;">★ Live</div>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="week-label" style="font-size:11px;color:var(--muted);">L2 Dashb.</div>
+        <div class="bar-wrap">
+          <div class="bar" style="left:25%;width:37.5%;background:rgba(108,99,255,0.2);border:1px solid var(--accent);color:var(--accent2);">Finance · Marketing · Product · Ops</div>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="week-label" style="font-size:11px;color:var(--muted);">L3 Analysen</div>
+        <div class="bar-wrap">
+          <div class="bar" style="left:62.5%;width:37.5%;background:rgba(52,211,153,0.15);border:1px solid var(--green);color:var(--green);">Cohorts · Funnel · Churn</div>
+        </div>
+      </div>
+      <div class="trow">
+        <div class="week-label" style="font-size:11px;color:var(--muted);">Team Adoption</div>
+        <div class="bar-wrap">
+          <div class="bar" style="left:62.5%;width:37.5%;background:rgba(244,114,182,0.15);border:1px solid var(--pink);color:var(--pink);">Review-Ritual · Onboarding</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDE 9 — NEXT STEPS / CTA
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s9">
+    <div class="glow glow-1"></div>
+    <div class="label">Let's go</div>
+    <h2>Nächste Schritte</h2>
+    <div class="divider"></div>
+    <div class="steps">
+      <div class="step">
+        <div class="n">1</div>
+        <div>
+          <h3>DB-Audit starten</h3>
+          <p>Welche Events & Felder sind bereits vorhanden?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <div>
+          <h3>Metabase aufsetzen</h3>
+          <p>Docker-Setup + Read-only DB-User anlegen</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <div>
+          <h3>L1-Cockpit live</h3>
+          <p>6 Kacheln, täglicher Report — in Woche 2</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n">4</div>
+        <div>
+          <h3>Weekly-Review einführen</h3>
+          <p>Montags · 30 min · L2-Dashboards · gemeinsam</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<nav class="nav">
+  <button id="prev" onclick="go(-1)" disabled>← Zurück</button>
+  <span class="counter" id="counter">1 / 9</span>
+  <button id="next" onclick="go(1)">Weiter →</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let cur = 0;
+
+  function go(dir) {
+    slides[cur].classList.remove('active');
+    cur = Math.max(0, Math.min(total - 1, cur + dir));
+    slides[cur].classList.add('active');
+    document.getElementById('counter').textContent = `${cur + 1} / ${total}`;
+    document.getElementById('prev').disabled = cur === 0;
+    document.getElementById('next').disabled = cur === total - 1;
+    document.getElementById('progress').style.width = `${((cur + 1) / total) * 100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(-1);
+  });
+
+  // click right half = next, left half = prev
+  document.getElementById('deck').addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    e.clientX > window.innerWidth / 2 ? go(1) : go(-1);
+  });
+
+  // init progress
+  document.getElementById('progress').style.width = `${(1 / total) * 100}%`;
+</script>
+</body>
+</html>
